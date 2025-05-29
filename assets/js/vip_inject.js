@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         爱壹帆去除播放中的广告
 // @namespace    http://tampermonkey.net/
-// @version      0.3
+// @version      0.4
 // @description  爱壹帆去除播放中的广告,需要登录一个普通账号
 // @author       CeeYang
 // @match        *://*.iyf.tv/*
