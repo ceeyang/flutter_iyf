@@ -22,77 +22,22 @@
     // 在播放页刷新，用户信息接口还没拉取到，广告内容已经初始化好了。
     // 将就用吧，垃圾代码，浪费我5个小时。
 
-    // 劫持 fetch
-    var originalFetch = window.fetch;
-    window.fetch = function() {
-        var url = arguments[0];
-        /// 用户信息
-        if (typeof url === 'string' && (url.includes('getuserinfo') || url.includes('getuseinfo'))) {
-            console.log('[vip_inject] fetch 拦截到用户信息请求:', url);
-            return originalFetch.apply(this, arguments).then(function(response) {
-                return response.clone().json().then(function(data) {
-                    // 只修改 bigV 及 bigVBeginTime/bigVEndTime
-                    if (data && data.data) {
-                        data.data.bigV = true;
-                        data.data.vipLevel = 2;
-                        data.data.vipCategoryId = 1;
-                        data.data.vipTypeName = "超级VIP";
-                        data.data.eDate = "2026-05-27T23:09:00Z";
-                        data.data.bigVBeginTime = "2025-05-27T23:09:00Z";
-                        data.data.bigVEndTime = "2099-05-27T23:09:00Z";
-                        data.data.gid = 1;
-                    }
-                    if (data && data.data.info) {
-                        data.data.info[0].userLevel = 2;
-                        data.data.info[0].vipImage = "/assets/images/membership/g-VIP.png"
-                        data.data.info[0].gold = 9999;
-                        data.data.info[0].endDate = "2026-05-27";
-                        data.data.info[0].endDays = 365;
-                    }
-                    console.log('[vip_inject] fetch 返回伪造数据:', data);
-                    return new Response(JSON.stringify(data), {
-                        status: response.status,
-                        statusText: response.statusText,
-                        headers: response.headers
-                    });
-                });
-            });
-        }
-        /// 播放广告
-        if (typeof url === 'string' && (url.includes('user/getuserext') || url.includes('user/getuserext'))) {
-            console.log('[vip_inject] fetch 拦截到用户扩展请求:', url);
-            return originalFetch.apply(this, arguments).then(function(response) {
-                return response.clone().json().then(function(data) {
-                    if (data && data.data && data.data.info) {
-                            for (var i = 0; i < data.data.info.length; i++) {
-                                data.data.info[i].isValid = true;
-                            }
-                        }
-                    console.log('[vip_inject] fetch 返回伪造数据:', data);
-                    return new Response(JSON.stringify(data), {
-                        status: response.status,
-                        statusText: response.statusText,
-                        headers: response.headers
-                    });
-                });
-            });
-        }
-        return originalFetch.apply(this, arguments);
-    };
-
     // 劫持 XMLHttpRequest
     var originalOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function(method, url) {
-        this._isTarget = url.includes('getuserinfo') || url.includes('getuseinfo');
-        this._isUserExt = url.includes('user/getuserext');
+        this._getUserInfo = url.includes('getuserinfo');
+        /// 网页端访问
+        this._getUserExt = url.includes('user/getuserext');
         this._isADList = url.includes('play/o');
         this._isPlay = url.includes('video/play');
         this._url = url;
+        /// 移动端 h5 访问
+        this._adsDataList = url.includes('video/getadsdatalist');
         return originalOpen.apply(this, arguments);
     };
     var originalSend = XMLHttpRequest.prototype.send;
     XMLHttpRequest.prototype.send = function() {
-        if (this._isTarget) {
+        if (this._getUserInfo) {
             console.log('[vip_inject] XMLHttpRequest open 拦截到用户信息请求：', this._url);
             var xhr = this;
             var onReadyStateChange = xhr.onreadystatechange;
@@ -134,7 +79,7 @@
                 onLoad && onLoad.apply(xhr, arguments);
             };
             return originalSend.apply(this, arguments);
-        } else if (this._isUserExt) {
+        } else if (this._getUserExt) {
             console.log('[vip_inject] XMLHttpRequest open 拦截到用户扩展请求:', this._url);
             var xhr = this;
             var onReadyStateChange = xhr.onreadystatechange;
@@ -209,6 +154,37 @@
                         console.log('[vip_inject] XMLHttpRequest 返回伪造播放数据:', data);
                     } catch(e) {
                         console.log('[vip_inject] 解析原始播放响应失败:', e);
+                    }
+                }
+                onReadyStateChange && onReadyStateChange.apply(xhr, arguments);
+            };
+            xhr.onreadystatechange = realOnReadyStateChange;
+            xhr.onload = function() {
+                realOnReadyStateChange();
+                onLoad && onLoad.apply(xhr, arguments);
+            };
+            return originalSend.apply(this, arguments);
+        } else if (this._adsDataList) {
+            console.log('[vip_inject] XMLHttpRequest open 拦截到广告列表请求:', this._url);
+            var xhr = this;
+            var onReadyStateChange = xhr.onreadystatechange;
+            var onLoad = xhr.onload;
+            var realOnReadyStateChange = function() {
+                if (xhr.readyState === 4) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data && data.data) {
+                            data.data.kaiping = [];
+                            data.data.chaBo = [];
+                            data.data.zanting = [];
+                            data.data.bofang = [];
+                        }
+                        var newText = JSON.stringify(data);
+                        Object.defineProperty(xhr, 'responseText', {value: newText});
+                        Object.defineProperty(xhr, 'response', {value: newText});
+                        console.log('[vip_inject] XMLHttpRequest 返回广告列表数据:', data);
+                    } catch(e) {
+                        console.log('[vip_inject] 解析原始广告列表响应失败:', e);
                     }
                 }
                 onReadyStateChange && onReadyStateChange.apply(xhr, arguments);
