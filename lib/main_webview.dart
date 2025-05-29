@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_iyf/services/vip_inject_loader.dart';
 
 class MainWebViewPage extends StatefulWidget {
   const MainWebViewPage({super.key});
@@ -20,6 +20,7 @@ class _MainWebViewPageState extends State<MainWebViewPage> {
     allowsInlineMediaPlayback: true,
     iframeAllow: "camera; microphone",
     iframeAllowFullscreen: true,
+    transparentBackground: true,
   );
 
   PullToRefreshController? pullToRefreshController;
@@ -34,8 +35,8 @@ class _MainWebViewPageState extends State<MainWebViewPage> {
   void initState() {
     super.initState();
 
-    // 预加载本地 JS 文件内容
-    rootBundle.loadString('assets/js/vip_inject.js').then((String js) {
+    // 初始化注入脚本，自动判断远程版本
+    initVipInjectJs().then((String js) {
       setState(() {
         vipInjectJs = js;
       });
