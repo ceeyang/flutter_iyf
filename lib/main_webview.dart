@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 class MainWebViewPage extends StatefulWidget {
@@ -24,11 +25,21 @@ class _MainWebViewPageState extends State<MainWebViewPage> {
   PullToRefreshController? pullToRefreshController;
   String url = 'https://www.yfsp.tv/';
   double progress = 0;
-  final urlController = TextEditingController();
+  final TextEditingController urlController = TextEditingController();
+
+  // 用于缓存注入脚本内容
+  String? vipInjectJs;
 
   @override
   void initState() {
     super.initState();
+
+    // 预加载本地 JS 文件内容
+    rootBundle.loadString('assets/js/vip_inject.js').then((String js) {
+      setState(() {
+        vipInjectJs = js;
+      });
+    });
 
     pullToRefreshController =
         kIsWeb || ![TargetPlatform.iOS, TargetPlatform.android].contains(defaultTargetPlatform)
@@ -97,6 +108,10 @@ class _MainWebViewPageState extends State<MainWebViewPage> {
                   this.url = url.toString();
                   urlController.text = this.url;
                 });
+                // 页面加载完成后注入 vip_inject.js
+                if (vipInjectJs != null) {
+                  await controller.evaluateJavascript(source: vipInjectJs!);
+                }
               },
               onReceivedError: (controller, request, error) {
                 pullToRefreshController?.endRefreshing();
